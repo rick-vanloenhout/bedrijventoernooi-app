@@ -55,8 +55,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     // Handle window resize to toggle between table/card views
+    // Only trigger on width changes, not height (to avoid iOS Safari address bar issues)
     let resizeTimeout;
+    let lastWidth = window.innerWidth;
+    let isScrolling = false;
+    let scrollTimeout;
+    
+    // Track scrolling state to prevent reloads during scroll
+    window.addEventListener("scroll", () => {
+        isScrolling = true;
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+            isScrolling = false;
+        }, 150);
+    }, { passive: true });
+    
     window.addEventListener("resize", () => {
+        // Don't reload if user is actively scrolling
+        if (isScrolling) {
+            return;
+        }
+        
+        const currentWidth = window.innerWidth;
+        // Only reload if width actually changed significantly (ignore height-only changes from iOS Safari)
+        if (Math.abs(currentWidth - lastWidth) < 10) {
+            return; // Height-only change, ignore it
+        }
+        lastWidth = currentWidth;
+        
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
             if (!scheduleContainer.classList.contains("hidden")) {
