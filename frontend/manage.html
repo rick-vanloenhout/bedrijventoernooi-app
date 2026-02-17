@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Tournament</title>
+    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <a href="index.html">← Terug</a>
+    <h1 id="title"></h1>
+
+    <!-- Poules Section -->
+    <div class="poules-section">
+        <h2>Poules</h2>
+        <table class="keep-table">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Acties</th>
+                </tr>
+            </thead>
+            <tbody id="poule-list"></tbody>
+        </table>
+        <h3>Poule toevoegen</h3>
+        <div class="add-form-row">
+            <input id="new-poule-name" placeholder="Poulenaam"/>
+            <button id="add-poule">Toevoegen</button>
+        </div>
+    </div>
+
+    <!-- Teams Section -->
+    <div class="teams-section">
+        <h2>Teams</h2>
+        <table class="keep-table">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Poule</th>
+                    <th>Acties</th>
+                </tr>
+            </thead>
+            <tbody id="teams"></tbody>
+        </table>
+        <h3>Team toevoegen</h3>
+        <div class="add-form-row">
+            <input id="team-name" placeholder="Teamnaam"/>
+            <select id="poule-select">
+                <option value="">-- Selecteer een poule --</option>
+            </select>
+            <button id="add-team">Toevoegen</button>
+        </div>
+    </div>
+
+    <!-- Schedule Section -->
+    <div id="schedule-section">
+        <h2>Schema</h2>
+        <div class="schedule-buttons">
+            <button id="generate-schedule-btn">Genereer schema groepsfase</button>
+            <button id="generate-knockout-btn" style="display: none;">Genereer knockout fase</button>
+            <button id="generate-final-btn" style="display: none;">Genereer finale</button>
+            <button id="view-schedule-btn">Bekijk schema</button>
+            <button id="enter-scores-btn">Scores invullen</button>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/manage.js"></script>
+</body>
+</html>

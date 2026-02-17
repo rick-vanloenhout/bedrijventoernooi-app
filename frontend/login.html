@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inloggen - Organisatie</title>
+    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <h1>Inloggen voor organisatie</h1>
+    <div id="login-form" style="max-width: 400px; margin: 0 auto;">
+        <form id="login-form-element">
+            <div style="margin-bottom: 16px;">
+                <label for="username">Gebruikersnaam:</label>
+                <input type="text" id="username" required style="width: 100%; padding: 8px; margin-top: 4px;">
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label for="password">Wachtwoord:</label>
+                <input type="password" id="password" required style="width: 100%; padding: 8px; margin-top: 4px;">
+            </div>
+            <button type="submit" style="width: 100%; padding: 10px;">Inloggen</button>
+        </form>
+        <div id="error-message" style="color: #cc3333; margin-top: 16px; display: none;"></div>
+        <div style="margin-top: 24px;">
+            <a href="index.html">← Terug naar toernooien</a>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.getElementById("login-form-element").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+            const errorDiv = document.getElementById("error-message");
+
+            try {
+                const res = await fetch(`${window.API_BASE || window.location.origin}/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    errorDiv.textContent = data.detail || "Inloggen mislukt";
+                    errorDiv.style.display = "block";
+                    return;
+                }
+
+                const data = await res.json();
+                localStorage.setItem("auth_token", data.access_token);
+                window.location.href = "index.html";
+            } catch (err) {
+                errorDiv.textContent = "Fout bij verbinden met server";
+                errorDiv.style.display = "block";
+            }
+        });
+
+        // Redirect if already logged in
+        if (localStorage.getItem("auth_token")) {
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>

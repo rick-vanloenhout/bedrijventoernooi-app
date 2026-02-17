@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wedstrijdscores invullen</title>
+    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <a id="back-link" href="#">← Terug naar schema</a>
+    <h1>Wedstrijdscores invullen</h1>
+    
+    <div id="phase-controls" style="margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="show-all-phases" style="width: auto;">
+            <span>Toon alle fases</span>
+        </label>
+        <select id="phase-filter" style="padding: 8px; min-width: 150px;">
+            <option value="current">Huidige fase</option>
+            <option value="group">Groepsfase</option>
+            <option value="knockout">Knockout fase</option>
+            <option value="final">Finale</option>
+            <option value="all">Alle fases</option>
+        </select>
+    </div>
+    
+    <div id="matches-container"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/score-entry.js"></script>
+</body>
+</html>

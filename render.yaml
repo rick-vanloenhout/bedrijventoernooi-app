@@ -1,0 +1,21 @@
+# Render.com Configuration File
+# This file makes deployment easier - Render will use these settings automatically
+
+services:
+  - type: web
+    name: bedrijventoernooi-app
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: JWT_SECRET_KEY
+        generateValue: true  # Render will generate a secure key
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DEBUG
+        value: "False"
+      - key: CREATE_DEFAULT_ADMIN
+        value: "False"
+      - key: DATABASE_URL
+        value: "sqlite:///./tournament.db"

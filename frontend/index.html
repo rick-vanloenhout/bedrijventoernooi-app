@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Toernooien</title>
+    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>Toernooien</h1>
+        <div id="auth-section">
+            <span id="auth-status" style="margin-right: 16px;"></span>
+            <button id="login-btn" style="display: none;">Inloggen</button>
+            <button id="logout-btn" style="display: none;">Uitloggen</button>
+        </div>
+    </div>
+    <div id="tournament-grid" class="tournament-grid"></div>
+
+    <div id="new-tournament-form" class="hidden">
+        <h2>Toernooi aanmaken</h2>
+        <form id="tournament-form">
+            <input id="name" placeholder="Naam" required>
+            <input id="start_time" type="time" placeholder="Starttijd" required>
+            <input id="fields" type="number" placeholder="Velden" required>
+            <input id="match" type="number" placeholder="Wedstrijd (minuten)" required>
+            <input id="breaktime" type="number" placeholder="Pauze (minuten)" required>
+
+            <button id="create" type="submit">Aanmaken</button>
+        </form>
+    </div>
+    
+    <script src="js/api.js?v=1"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/tournament.js?v=1"></script>
+</body>
+</html>

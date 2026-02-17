@@ -1,0 +1,822 @@
+* {
+    box-sizing: border-box;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 24px;
+    background: #f6f7f9;
+    color: #222;
+}
+
+a {
+    text-decoration: none;
+    color: #E24E15;
+    margin-bottom: 16px;
+    display: inline-block;
+}
+
+h1 {
+    margin-top: 0;
+    margin-bottom: 24px;
+}
+
+h2, h3 {
+    margin-top: 32px;
+    margin-bottom: 12px;
+}
+
+section {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+    margin-top: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+thead {
+    background: #f0f2f5;
+}
+
+th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+tbody tr:hover {
+    background: #fafafa;
+}
+
+button {
+    cursor: pointer;
+}
+
+button {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    background: #E24E15;
+    color: white;
+    font-size: 0.9rem;
+}
+
+button:hover {
+    background: white;
+    outline: 1px solid #E24E15;
+    color: #E24E15;
+}
+
+button.danger {
+    background: #cc3333;
+}
+
+button.danger:hover {
+    background: #aa2222;
+}
+
+input, select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 0.9rem;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #E24E15;
+}
+
+/* Center placeholder text and various elements on mobile */
+@media (max-width: 768px) {
+    input::placeholder {
+        text-align: center;
+    }
+    
+    #new-poule-name::placeholder,
+    #team-name::placeholder {
+        text-align: center;
+    }
+    
+    /* Center headings and labels */
+    h1, h2, h3 {
+        text-align: center;
+    }
+    
+    /* Center tournament title */
+    #title {
+        text-align: center;
+    }
+    
+    /* Center select dropdown text */
+    select {
+        text-align: center;
+        text-align-last: center;
+    }
+    
+    select option {
+        text-align: center;
+    }
+    
+    /* Center schedule page title */
+    h1 {
+        text-align: center;
+    }
+    
+    /* Center tab buttons */
+    .tabs {
+        justify-content: center;
+    }
+    
+    .tab-button {
+        text-align: center;
+    }
+}
+
+#poule-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    /* margin: 0 0 12px 0; */
+    /* display: flex;
+    flex-direction: column;
+    gap: 8px; */
+}
+
+.poule-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #f4f6f8;
+    border-radius: 4px;
+}
+
+#new-poule-name, #add-poule {
+    margin-right: 8px;
+}
+
+#new-poule-name {
+    flex: 1;
+}
+
+.add-team {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.add-team input {
+    flex: 2;
+}
+
+.add-team select {
+    flex: 1;
+}
+
+/* Poules and Teams Sections */
+.poules-section,
+.teams-section {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.add-form-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.add-form-row input,
+.add-form-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+.add-form-row button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Schedule Section Spacing */
+#schedule-section {
+    margin-top: 32px;
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.schedule-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.schedule-buttons button {
+    flex: 0 1 auto;
+}
+
+.tournament-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.tournament-card {
+    flex: 0 0 calc(33.333% - 1.5rem); /* 3 columns */
+    min-width: 220px;
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    cursor: pointer;
+    text-align: center;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tournament-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.tournament-card h3 {
+    margin: 0 0 8px 0;
+}
+
+.tournament-card .meta {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.tournament-card.new-tournament {
+    flex-basis: 100%;
+    max-width: calc(33.333% - 1.5rem); /* still 1 slot wide */
+}
+
+.new-tournament {
+    border: 2px dashed #999;
+    color: #666;
+    background: #fafafa;
+}
+
+.new-tournament span {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.new-tournament:hover {
+    background: #eee;
+}
+
+/* #tournament-form {
+    display: none;
+} */
+
+.hidden {
+    display: none;
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.card-actions button {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.edit-btn {
+    background: #E24E15;
+    color: white;
+}
+
+.delete-btn {
+    background: #E24E15;
+    color: white;
+}
+
+.tabs {
+    margin: 16px 0;
+    display: flex;
+    gap: 8px;
+}
+
+.tab-button {
+    background: #f0f2f5;
+    color: #333;
+}
+
+.tab-button.active {
+    background: #E24E15;
+    color: white;
+}
+
+.round {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.schedule-table {
+    margin-top: 12px;
+}
+
+.schedule-table thead {
+    background: #E24E15;
+}
+
+.schedule-table th {
+    text-align: center;
+    font-weight: 600;
+    background: #E24E15;
+    color: white;
+}
+
+.schedule-table td {
+    text-align: center;
+}
+
+.schedule-table td:first-child {
+    font-weight: 600;
+}
+
+.schedule-table .score-cell {
+    font-weight: 600;
+    font-size: 1.1rem;
+    min-width: 50px;
+}
+
+.schedule-table .score-cell .score-winner {
+    font-weight: bold;
+    color: #E24E15;
+}
+
+.schedule-table .colon-cell {
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 10px 4px;
+    color: #666;
+}
+
+
+
+/* Mobile Responsiveness - App Developer Approach */
+@media (max-width: 900px) {
+    .tournament-card {
+        flex: 1 1 calc(50% - 16px);
+    }
+    
+    body {
+        padding: 16px;
+    }
+}
+
+/* Mobile-first redesign for small screens */
+@media (max-width: 768px) {
+    body {
+        padding: 12px 8px;
+        font-size: 15px;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+    
+    h2 {
+        font-size: 1.25rem;
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+    }
+    
+    h3 {
+        font-size: 1.1rem;
+        margin-top: 20px;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+    
+    /* Tournament cards */
+    .tournament-card {
+        flex: 1 1 100%;
+        padding: 20px 16px;
+        margin-bottom: 12px;
+    }
+    
+    .tournament-card .meta {
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+    
+    /* Buttons - Touch-friendly but not oversized */
+    button {
+        font-size: 0.95rem;
+        padding: 10px 16px;
+        min-height: 44px; /* Touch target size */
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    
+    .card-actions {
+        flex-direction: row;
+        gap: 8px;
+        margin-top: 16px;
+    }
+    
+    .card-actions button {
+        flex: 1;
+        padding: 10px;
+    }
+    
+    /* Tables converted to cards on mobile */
+    table:not(.schedule-table):not(.keep-table) {
+        display: none;
+    }
+    
+    .table-card-view {
+        display: block;
+    }
+    
+    .table-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .table-card-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid #f3f4f6;
+        gap: 16px;
+    }
+    
+    .table-card-row > div {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .table-card-row:last-child {
+        border-bottom: none;
+    }
+    
+    .table-card-label {
+        font-weight: 600;
+        color: #6b7280;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+    }
+    
+    .table-card-value {
+        font-size: 1rem;
+        color: #111827;
+    }
+    
+    .table-card-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #f3f4f6;
+    }
+    
+    .table-card-actions button {
+        flex: 1;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        min-height: 40px;
+    }
+    
+    /* Schedule table - Reduced spacing to fit on screen */
+    .schedule-table-wrapper {
+        overflow-x: visible;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .schedule-table {
+        width: 100%;
+        font-size: 0.85rem;
+    }
+    
+    .schedule-table th,
+    .schedule-table td {
+        padding: 8px 4px;
+        font-size: 0.85rem;
+    }
+    
+    .schedule-table th:first-child,
+    .schedule-table td:first-child {
+        padding-left: 8px;
+    }
+    
+    .schedule-table th:last-child,
+    .schedule-table td:last-child {
+        padding-right: 8px;
+    }
+    
+    .schedule-table .score-cell {
+        font-size: 0.9rem;
+        min-width: 35px;
+        padding: 8px 2px;
+    }
+    
+    .schedule-table .colon-cell {
+        padding: 8px 2px;
+        font-size: 0.9rem;
+    }
+    
+    /* Regular tables - also reduce spacing */
+    table.keep-table {
+        width: 100%;
+        font-size: 0.85rem;
+    }
+    
+    table.keep-table th,
+    table.keep-table td {
+        padding: 8px 4px;
+        font-size: 0.85rem;
+    }
+    
+    table.keep-table th:first-child,
+    table.keep-table td:first-child {
+        padding-left: 8px;
+    }
+    
+    table.keep-table th:last-child,
+    table.keep-table td:last-child {
+        padding-right: 8px;
+    }
+    
+    /* Standings table - Card view */
+    .standings-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    .standings-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #E24E15;
+    }
+    
+    .standings-card-rank {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #E24E15;
+        min-width: 40px;
+    }
+    
+    .standings-card-team {
+        flex: 1;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-left: 12px;
+    }
+    
+    .standings-card-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #f3f4f6;
+    }
+    
+    .standings-stat {
+        text-align: center;
+    }
+    
+    .standings-stat-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .standings-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #111827;
+    }
+    
+    /* Tabs */
+    .tabs {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 4px;
+    }
+    
+    .tab-button {
+        font-size: 0.9rem;
+        padding: 10px 16px;
+        min-height: 44px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    /* Forms */
+    input, select {
+        font-size: 1rem;
+        padding: 12px;
+        border-radius: 8px;
+        min-height: 44px;
+        width: 100%;
+    }
+    
+    .add-team {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    /* Rounds and matches */
+    .round {
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+    }
+    
+    .round h3 {
+        font-size: 1.1rem;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #E24E15;
+    }
+    
+    .round ul {
+        padding-left: 0;
+        list-style: none;
+        margin: 0;
+    }
+    
+    .round li {
+        background: #f9fafb;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .round li > div[style*="grid"] {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    /* Score entry improvements */
+    .round li > div[style*="grid"] > div {
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .round li button {
+        width: 100%;
+        margin-top: 12px;
+    }
+    
+    /* Phase controls */
+    #phase-controls {
+        flex-direction: column;
+        gap: 12px;
+        background: white;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    #phase-controls label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.95rem;
+    }
+    
+    #phase-controls select {
+        width: 100%;
+        margin: 0;
+    }
+    
+    /* Poules list */
+    .poule-item {
+        padding: 16px;
+        margin-bottom: 12px;
+        border-radius: 10px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+    
+    /* Better spacing */
+    section {
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+    
+    /* Loading states */
+    .loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #6b7280;
+    }
+    
+    .loading::after {
+        content: "...";
+        animation: dots 1.5s steps(4, end) infinite;
+    }
+    
+    @keyframes dots {
+        0%, 20% { content: "."; }
+        40% { content: ".."; }
+        60%, 100% { content: "..."; }
+    }
+}
+
+/* Very small screens */
+@media (max-width: 400px) {
+    body {
+        padding: 8px 6px;
+    }
+    
+    h1 {
+        font-size: 1.35rem;
+    }
+    
+    .tournament-card {
+        padding: 16px 12px;
+    }
+    
+    button {
+        font-size: 0.9rem;
+        padding: 10px 14px;
+    }
+}
+
+/* Mobile adjustments for manage page */
+@media (max-width: 768px) {
+    .add-form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .add-form-row button {
+        width: 100%;
+    }
+    
+    .schedule-buttons {
+        flex-direction: column;
+    }
+    
+    .schedule-buttons button {
+        width: 100%;
+    }
+}
+
