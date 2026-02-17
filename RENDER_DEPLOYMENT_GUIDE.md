@@ -113,9 +113,24 @@ Fill in the following settings:
 4. **CREATE_DEFAULT_ADMIN**
    - Value: `False`
 
-5. **DATABASE_URL** (Optional - SQLite works fine)
+5. **DATABASE_URL** (⚠️ **IMPORTANT - Use PostgreSQL for data persistence**)
+   
+   **Option A: PostgreSQL (Recommended - Data Persists)**
+   - First, create a PostgreSQL database:
+     1. In Render dashboard, click **"New +"** → **"PostgreSQL"**
+     2. Name it: `bedrijventoernooi-db` (or any name)
+     3. Select **"Free"** plan
+     4. Choose same region as your web service
+     5. Click **"Create Database"**
+     6. Wait 1-2 minutes for it to be ready
+   - Copy the **"Internal Database URL"** (starts with `postgresql://`)
+   - Set `DATABASE_URL` environment variable to this URL
+   - ✅ **Data will persist between deployments!**
+   
+   **Option B: SQLite (Not Recommended - Data Can Be Lost)**
    - Value: `sqlite:///./tournament.db`
-   - Or leave default
+   - ⚠️ **Warning:** SQLite files on Render's free tier can be wiped during deployments
+   - Only use for testing, not production
 
 **Note**: Don't set `DEFAULT_ADMIN_PASSWORD` - we'll create admin user manually.
 
@@ -138,8 +153,11 @@ Once deployment is complete:
 2. Go to: `https://your-app-name.onrender.com/frontend/index.html`
 3. You'll need to create an admin user
 
-**Option A: Using Render Shell (Recommended)**
+**Option A: Using Render Shell (Not Available on Free Tier)**
 
+⚠️ **Note:** Shell access requires a paid Render plan. Free tier users should use **Option B** instead.
+
+If you have shell access:
 1. In Render dashboard, go to your service
 2. Click **"Shell"** tab
 3. Run:
@@ -151,21 +169,80 @@ Once deployment is complete:
    python -m backend.create_admin admin MySecurePassword123!
    ```
 
-**Option B: Using Local Script (If Shell doesn't work)**
+**Option B: Create User Account via Environment Variables (For Free Tier Users)**
 
-1. Download your database file from Render (if possible)
-2. Or use a local script to create user and upload DB
-3. Or temporarily enable admin creation, create user, then disable
+This is the recommended method if you don't have shell access (free tier limitation).
 
-**Option C: Temporary Admin Creation**
+**Note:** You can create ANY user account with ANY username using this method. All users have the same permissions (they're all organizers who can manage tournaments). The "admin" naming is just convention - feel free to use any username you prefer!
 
-1. In Render dashboard → Environment → Add:
-   - `CREATE_DEFAULT_ADMIN` = `true`
-   - `DEFAULT_ADMIN_USERNAME` = `admin`
-   - `DEFAULT_ADMIN_PASSWORD` = `YourSecurePassword`
-2. Save changes (triggers redeploy)
-3. Once admin is created, remove these variables
-4. Redeploy
+**Step 1: Add Environment Variables**
+1. In Render dashboard, go to your service
+2. Click on **"Environment"** tab (in the left sidebar)
+3. Click **"Add Environment Variable"** button
+4. Add these three variables one by one:
+
+   **Variable 1:**
+   - Key: `CREATE_DEFAULT_ADMIN`
+   - Value: `true`
+   - Click **"Save Changes"**
+
+   **Variable 2:**
+   - Key: `DEFAULT_ADMIN_USERNAME`
+   - Value: `admin` (or any username you want, e.g., `organizer`, `john`, `tournament_manager`)
+   - Click **"Save Changes"**
+
+   **Variable 3:**
+   - Key: `DEFAULT_ADMIN_PASSWORD`
+   - Value: `YourSecurePassword123!` (use a strong password!)
+   - Click **"Save Changes"**
+
+**Step 2: Wait for Redeploy**
+- Render will automatically detect the environment variable changes
+- It will trigger a new deployment (you'll see "Deploying..." status)
+- Wait 2-3 minutes for the deployment to complete
+- Check the **"Logs"** tab to see when it finishes
+
+**Step 3: Verify User Account Was Created**
+1. Once deployment is complete, try logging in:
+   - Go to: `https://your-app-name.onrender.com/frontend/login.html`
+   - Username: The username you set in `DEFAULT_ADMIN_USERNAME` (e.g., `admin`, `organizer`, etc.)
+   - Password: The password you set in `DEFAULT_ADMIN_PASSWORD`
+2. If login works, proceed to Step 4
+
+**Step 4: Remove Environment Variables (IMPORTANT for Security)**
+
+⚠️ **CRITICAL:** Only use **"Save Changes"** - DO NOT use "Rebuild" or "Rebuild & Deploy" as this will wipe your database!
+
+1. Go back to **"Environment"** tab in Render dashboard
+2. Click the **trash icon** (🗑️) next to each of these three variables:
+   - `CREATE_DEFAULT_ADMIN`
+   - `DEFAULT_ADMIN_USERNAME`
+   - `DEFAULT_ADMIN_PASSWORD`
+3. Click **"Save Changes"** (NOT "Rebuild"!)
+4. Render will automatically redeploy (this is normal and safe)
+5. Wait 2-3 minutes for the deployment to complete
+
+**Step 5: Verify Everything Still Works**
+- Your user account should still be in the database
+- The environment variables are removed (more secure)
+- Try logging in again - it should still work!
+
+**⚠️ Important Note About Database Persistence:**
+- On Render's free tier, SQLite database files persist between normal deployments
+- However, using **"Rebuild"** or **"Rebuild & Deploy"** will wipe the filesystem and delete your database
+- Always use **"Save Changes"** instead, which triggers a normal redeploy without wiping data
+- If your database gets wiped, simply repeat Steps 1-3 to recreate your user account
+
+**Why This Works:**
+- When `CREATE_DEFAULT_ADMIN=true` and `DEFAULT_ADMIN_PASSWORD` is set, the app automatically creates a user account on startup
+- Once created, the user exists in the database permanently
+- Removing the variables prevents accidental recreation and improves security
+
+**Creating Multiple Users:**
+- You can repeat this process to create multiple user accounts
+- Just change the `DEFAULT_ADMIN_USERNAME` value each time
+- Each user will have the same permissions (all can manage tournaments)
+
 
 ---
 
@@ -199,9 +276,12 @@ Once deployment is complete:
    - More than enough for a tournament!
 
 3. **Database Persistence**
-   - SQLite file persists between deployments
-   - Data is saved in Render's filesystem
+   - ✅ **PostgreSQL (Recommended):** Data persists reliably between all deployments
+   - ⚠️ **SQLite:** Files can be wiped during deployments on free tier
+   - ⚠️ **"Rebuild" or "Rebuild & Deploy" will wipe SQLite database!**
+   - **Solution:** Use Render's free PostgreSQL database (see Step 4, Environment Variables)
    - **Backup**: Export your database before important tournaments
+   - **Always use "Save Changes" instead of "Rebuild"**
 
 ### Keeping Service Awake (Optional):
 
@@ -244,6 +324,24 @@ Create a simple ping script or use a service like:
 **SQLite Lock Errors:**
 - SQLite works fine for your use case (16 teams, ~100 users)
 - If you need more, consider PostgreSQL (free tier available)
+
+**Database Wiped / Data Lost After Deployment:**
+- ⚠️ **This is a known issue with SQLite on Render's free tier**
+- SQLite files can be wiped during deployments (even normal ones)
+- **Solution:** Switch to PostgreSQL (free tier available)
+  1. Create a PostgreSQL database in Render dashboard
+  2. Copy the "Internal Database URL"
+  3. Set `DATABASE_URL` environment variable to the PostgreSQL URL
+  4. Redeploy your app
+  5. Your data will now persist reliably!
+
+**Database Wiped / Can't Login After Removing Environment Variables:**
+- ⚠️ **This happens if you used "Rebuild" instead of "Save Changes"**
+- "Rebuild" wipes the entire filesystem, including your SQLite database
+- **Solution:** Recreate your user account by repeating Option B (Steps 1-3)
+- Add the environment variables back, wait for deploy, verify login works
+- Then remove them using **"Save Changes"** (NOT "Rebuild"!)
+- **Prevention:** Always use "Save Changes" for environment variable changes
 
 ---
 
