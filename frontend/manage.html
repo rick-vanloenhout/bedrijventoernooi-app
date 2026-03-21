@@ -9,6 +9,15 @@
     <a href="index.html">← Terug</a>
     <h1 id="title"></h1>
 
+    <!-- Poule Setup Section -->
+    <div id="poule-setup-section">
+        <h2>Poule indeling</h2>
+        <p id="team-count-info"></p>
+        <div id="suggestions-container"></div>
+        <button id="auto-distribute-btn">Verdeel teams over poules</button>
+        <p id="setup-warning" style="color: orange; display:none;"></p>
+    </div>
+
     <!-- Poules Section -->
     <div class="poules-section">
         <h2>Poules</h2>
@@ -21,11 +30,6 @@
             </thead>
             <tbody id="poule-list"></tbody>
         </table>
-        <h3>Poule toevoegen</h3>
-        <div class="add-form-row">
-            <input id="new-poule-name" placeholder="Poulenaam"/>
-            <button id="add-poule">Toevoegen</button>
-        </div>
     </div>
 
     <!-- Teams Section -->
@@ -44,9 +48,6 @@
         <h3>Team toevoegen</h3>
         <div class="add-form-row">
             <input id="team-name" placeholder="Teamnaam"/>
-            <select id="poule-select">
-                <option value="">-- Selecteer een poule --</option>
-            </select>
             <button id="add-team">Toevoegen</button>
         </div>
     </div>

@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
+import math
+import random
 
 from backend.database import engine, SessionLocal
 from backend import models, crud, schemas, schedule
@@ -241,6 +243,174 @@ def delete_poule(
     db.delete(db_poule)
     db.commit()
     return {"status": "deleted"}
+
+
+# -------------------- Suggest Setup --------------------
+@app.get("/tournaments/{tournament_id}/suggest-setup")
+def suggest_setup(tournament_id: int, db: Session = Depends(get_db)):
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    teams = db.query(models.Team).filter(models.Team.tournament_id == tournament_id).all()
+    N = len(teams)
+
+    if N < 4:
+        return []
+
+    F = tournament.num_fields
+    slot_minutes = tournament.match_duration_minutes + tournament.break_duration_minutes
+
+    h, m = map(int, tournament.start_time.split(":"))
+    start_minutes = h * 60 + m
+
+    suggestions = []
+
+    for num_poules in range(2, N // 2 + 1, 2):  # even numbers only
+        base_size = N // num_poules
+        extra = N % num_poules
+
+        if base_size < 2:
+            break
+        if base_size > 7:
+            continue
+
+        max_poule_size = base_size + (1 if extra > 0 else 0)
+
+        group_rounds = (max_poule_size - 1) * math.ceil(num_poules / F)
+        knockout_matches = (num_poules // 2) * max_poule_size
+        knockout_rounds = math.ceil(knockout_matches / F)
+        total_rounds = group_rounds + knockout_rounds + 1  # +1 for final
+
+        end_minutes = start_minutes + total_rounds * slot_minutes
+        end_h = end_minutes // 60
+        end_m = end_minutes % 60
+        estimated_end_time = f"{end_h:02d}:{end_m:02d}"
+
+        is_balanced = extra == 0
+        poule_sizes = [base_size + 1] * extra + [base_size] * (num_poules - extra)
+
+        if is_balanced:
+            warning = None
+            group_matches_per_team = str(base_size - 1)
+        else:
+            warning = (
+                f"{extra} poule{'s' if extra > 1 else ''} van {base_size + 1} teams, "
+                f"{num_poules - extra} poule{'s' if (num_poules - extra) > 1 else ''} van {base_size} teams. "
+                f"Teams in kleinere poules spelen 1 groepswedstrijd minder."
+            )
+            group_matches_per_team = f"{base_size - 1}–{base_size}"
+
+        suggestions.append({
+            "num_poules": num_poules,
+            "poule_sizes": poule_sizes,
+            "is_balanced": is_balanced,
+            "group_matches_per_team": group_matches_per_team,
+            "total_rounds": total_rounds,
+            "estimated_end_time": estimated_end_time,
+            "warning": warning,
+        })
+
+    def sort_key(s):
+        rounds = s["total_rounds"]
+        if rounds == 8:
+            distance = 0
+        elif rounds == 9:
+            distance = 1
+        else:
+            distance = abs(rounds - 8.5) + 1
+        return (distance, 0 if s["is_balanced"] else 1)
+
+    suggestions.sort(key=sort_key)
+    return suggestions[:3]
+
+
+# -------------------- Auto Distribute --------------------
+@app.post("/tournaments/{tournament_id}/auto-distribute")
+def auto_distribute(
+    tournament_id: int,
+    body: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    num_poules = body.get("num_poules")
+    if not isinstance(num_poules, int) or num_poules < 2:
+        raise HTTPException(status_code=400, detail="num_poules moet een geheel getal >= 2 zijn.")
+
+    # Fail if group phase already generated
+    existing_group = db.query(Round).filter(
+        Round.tournament_id == tournament_id,
+        Round.type == "group"
+    ).first()
+    if existing_group:
+        raise HTTPException(
+            status_code=400,
+            detail="Groepsfase is al gegenereerd. Kan teams niet meer herverdelen."
+        )
+
+    # Get all teams first (before deleting poules)
+    teams = db.query(models.Team).filter(models.Team.tournament_id == tournament_id).all()
+    N = len(teams)
+
+    if N < num_poules * 2:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Te weinig teams ({N}) voor {num_poules} poules. Minimaal 2 teams per poule vereist."
+        )
+
+    # Null out all team poule_ids before deleting poules
+    # (Poule has cascade="all, delete-orphan" on teams, so we must detach first)
+    for team in teams:
+        team.poule_id = None
+    db.flush()
+
+    # Delete all existing poules for this tournament
+    existing_poules = db.query(Poule).filter(Poule.tournament_id == tournament_id).all()
+    for poule in existing_poules:
+        db.delete(poule)
+    db.flush()
+
+    # Create new poules: "Poule A", "Poule B", ...
+    poule_names = [chr(ord("A") + i) for i in range(num_poules)]
+    new_poules = []
+    for pname in poule_names:
+        p = models.Poule(name=f"Poule {pname}", tournament_id=tournament_id)
+        db.add(p)
+        new_poules.append(p)
+    db.flush()
+    for p in new_poules:
+        db.refresh(p)
+
+    # Distribute teams randomly; larger poules first (for knockout pairing)
+    base_size = N // num_poules
+    extra = N % num_poules
+    random.shuffle(teams)
+
+    team_idx = 0
+    for i, poule in enumerate(new_poules):
+        size = base_size + (1 if i < extra else 0)
+        for _ in range(size):
+            teams[team_idx].poule_id = poule.id
+            team_idx += 1
+
+    db.commit()
+
+    is_balanced = extra == 0
+    warning = None
+    if not is_balanced:
+        warning = (
+            f"{extra} poule{'s' if extra > 1 else ''} van {base_size + 1} teams, "
+            f"{num_poules - extra} poule{'s' if (num_poules - extra) > 1 else ''} van {base_size} teams."
+        )
+
+    return {
+        "poules": [{"id": p.id, "name": p.name} for p in new_poules],
+        "warning": warning,
+    }
 
 
 # -------------------- Team --------------------
@@ -729,21 +899,26 @@ def get_overall_standings(tournament_id: int, db: Session = Depends(get_db)):
         knockout_count = len([m for m in played_knockout if m.home_team_id == team_id or m.away_team_id == team_id])
         return group_count + knockout_count
 
-    return [
-        {
-            "rank": i + 1,
-            "id": t.id,
-            "name": t.name,
-            "points": points[t.id],
-            "points_for": points_for[t.id],
-            "points_against": points_against[t.id],
-            "balance": balance[t.id],
-            "played": count_played_matches(t.id),
-            "progression_level": progression_data[t.id]["level"],
-            "final_position": progression_data[t.id]["final_position"],
-        }
-        for i, t in enumerate(teams_sorted)
-    ]
+    num_poules = db.query(Poule).filter(Poule.tournament_id == tournament_id).count()
+
+    return {
+        "num_poules": num_poules,
+        "teams": [
+            {
+                "rank": i + 1,
+                "id": t.id,
+                "name": t.name,
+                "points": points[t.id],
+                "points_for": points_for[t.id],
+                "points_against": points_against[t.id],
+                "balance": balance[t.id],
+                "played": count_played_matches(t.id),
+                "progression_level": progression_data[t.id]["level"],
+                "final_position": progression_data[t.id]["final_position"],
+            }
+            for i, t in enumerate(teams_sorted)
+        ],
+    }
 
 
 @app.get("/tournaments/{tournament_id}/rounds")

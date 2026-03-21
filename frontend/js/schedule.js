@@ -266,7 +266,9 @@ async function loadOverallStandings() {
         return;
     }
 
-    const standings = await apiGet(`/tournaments/${tournamentId}/overall-standings`);
+    const data = await apiGet(`/tournaments/${tournamentId}/overall-standings`);
+    const standings = data.teams;
+    const num_poules = data.num_poules || 4;
 
     if (!standings || standings.length === 0) {
         container.textContent = "Geen algemeen klassement beschikbaar.";
@@ -310,20 +312,20 @@ async function loadOverallStandings() {
         
         let progressionBadge = "";
         if (loggedIn) {
-            if (row.progression_level === 1) {
+            const level = row.progression_level;
+            if (level === 1) {
                 if (row.final_position === 1) {
                     progressionBadge = " 🏆";
                 } else if (row.final_position === 2) {
                     progressionBadge = " 🥈";
                 } else {
-                    progressionBadge = " (Posities 1-4)";
+                    const end = num_poules;
+                    progressionBadge = ` (Posities 1–${end})`;
                 }
-            } else if (row.progression_level === 2) {
-                progressionBadge = " (Posities 5-8)";
-            } else if (row.progression_level === 3) {
-                progressionBadge = " (Posities 9-12)";
-            } else if (row.progression_level === 4) {
-                progressionBadge = " (Posities 13-16)";
+            } else if (level >= 2 && level <= 5) {
+                const start = (level - 1) * num_poules + 1;
+                const end = level * num_poules;
+                progressionBadge = ` (Posities ${start}–${end})`;
             }
         }
         

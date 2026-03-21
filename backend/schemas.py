@@ -38,14 +38,14 @@ class TournamentUpdate(BaseModel):
 # Team
 class TeamCreate(BaseModel):
     name: str
-    poule_id: int
+    poule_id: Optional[int] = None  # null until auto-distribute
 
 
 class TeamRead(BaseModel):
     id: int
     name: str
     tournament_id: int
-    poule_id: int
+    poule_id: Optional[int] = None
 
     model_config = {
         "from_attributes": True

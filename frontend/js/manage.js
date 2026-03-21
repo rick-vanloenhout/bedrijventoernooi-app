@@ -42,7 +42,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const response = await apiPost(`/tournaments/${tournamentId}/generate-group-phase`, {});
             alert(response.message || "Schema succesvol aangemaakt!");
-            updatePhaseButtons(); // Refresh button visibility
+            updatePhaseButtons();
+            loadSetupSuggestions(); // refresh to disable auto-distribute
         } catch (err) {
             console.error(err);
             alert(err.message || "Er is een fout opgetreden bij het genereren van het schema.");
@@ -58,7 +59,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const response = await apiPost(`/tournaments/${tournamentId}/generate-knockout-phase`, {});
                 alert(response.message || "Knockout fase succesvol ingevuld!");
-                updatePhaseButtons(); // Refresh button visibility
+                updatePhaseButtons();
             } catch (err) {
                 console.error(err);
                 alert(err.message || "Fout bij genereren knockout fase.");
@@ -75,7 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const response = await apiPost(`/tournaments/${tournamentId}/generate-final`, {});
                 alert(response.message || "Finale succesvol ingevuld!");
-                updatePhaseButtons(); // Refresh button visibility
+                updatePhaseButtons();
             } catch (err) {
                 console.error(err);
                 alert(err.message || "Fout bij genereren finale.");
@@ -95,6 +96,112 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
 
+    // ----------------- Poule Setup (Suggest & Auto-distribute) -----------------
+    async function loadSetupSuggestions() {
+        try {
+            const [suggestions, teams, status] = await Promise.all([
+                apiGet(`/tournaments/${tournamentId}/suggest-setup`),
+                apiGet(`/tournaments/${tournamentId}/teams/`),
+                apiGet(`/tournaments/${tournamentId}/phase-status`),
+            ]);
+
+            const teamCountInfo = document.getElementById("team-count-info");
+            const container = document.getElementById("suggestions-container");
+            const distributeBtn = document.getElementById("auto-distribute-btn");
+            const warningEl = document.getElementById("setup-warning");
+
+            teamCountInfo.textContent = `${teams.length} team${teams.length !== 1 ? "s" : ""} geregistreerd`;
+
+            container.innerHTML = "";
+            warningEl.style.display = "none";
+
+            const groupPhaseExists = status.group_matches_total > 0;
+
+            if (groupPhaseExists) {
+                distributeBtn.disabled = true;
+                distributeBtn.title = "Groepsfase is al gegenereerd";
+            } else {
+                distributeBtn.disabled = false;
+                distributeBtn.title = "";
+            }
+
+            if (!suggestions || suggestions.length === 0) {
+                container.textContent = teams.length < 4
+                    ? "Voeg minimaal 4 teams toe om aanbevelingen te zien."
+                    : "Geen aanbevelingen beschikbaar.";
+                return;
+            }
+
+            suggestions.forEach((s, idx) => {
+                const sizeSummary = s.poule_sizes
+                    .reduce((acc, size) => {
+                        const existing = acc.find(x => x.size === size);
+                        if (existing) existing.count++;
+                        else acc.push({ size, count: 1 });
+                        return acc;
+                    }, [])
+                    .map(x => `${x.count}×${x.size}`)
+                    .join(", ");
+
+                const label = document.createElement("label");
+                label.style.display = "block";
+                label.style.marginBottom = "6px";
+                label.style.cursor = groupPhaseExists ? "default" : "pointer";
+
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = "poule-setup";
+                radio.value = s.num_poules;
+                radio.disabled = groupPhaseExists;
+                if (idx === 0) radio.checked = true;
+
+                radio.addEventListener("change", () => {
+                    if (s.warning) {
+                        warningEl.textContent = s.warning;
+                        warningEl.style.display = "block";
+                    } else {
+                        warningEl.style.display = "none";
+                    }
+                });
+
+                label.appendChild(radio);
+                label.appendChild(document.createTextNode(
+                    ` ${s.num_poules} poules (${sizeSummary}) — ${s.total_rounds} rondes, ~${s.estimated_end_time}`
+                ));
+                container.appendChild(label);
+
+                // Show warning for initially selected option
+                if (idx === 0 && s.warning) {
+                    warningEl.textContent = s.warning;
+                    warningEl.style.display = "block";
+                }
+            });
+        } catch (err) {
+            console.error("Error loading setup suggestions:", err);
+        }
+    }
+
+    document.getElementById("auto-distribute-btn").onclick = async () => {
+        const selected = document.querySelector('input[name="poule-setup"]:checked');
+        if (!selected) return alert("Selecteer een optie");
+        const num_poules = parseInt(selected.value);
+        if (!confirm(`Weet je zeker? Dit verdeelt alle teams willekeurig over ${num_poules} poules.`)) return;
+
+        try {
+            const result = await apiPost(`/tournaments/${tournamentId}/auto-distribute`, { num_poules });
+            if (result.warning) {
+                document.getElementById("setup-warning").textContent = result.warning;
+                document.getElementById("setup-warning").style.display = "block";
+            }
+            await loadPoules();
+            await loadTeams();
+            await loadSetupSuggestions();
+        } catch (err) {
+            alert("Fout bij verdelen teams: " + err.message);
+        }
+    };
+
+
     // ----------------- Poules -----------------
     async function loadPoules() {
         try {
@@ -107,17 +214,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             list.innerHTML = "";
 
-            const select = document.getElementById("poule-select");
-            select.innerHTML = "";
-            select.appendChild(new Option("Geen poule", ""));
-
             // Check if mobile view (card-based)
             const isMobile = window.innerWidth <= 768;
             const poulesTable = document.querySelector("#poule-list").closest("table");
             let cardContainer = document.getElementById("poules-card-container");
 
             if (isMobile && poulesTable) {
-                // Create card container if it doesn't exist
                 if (!cardContainer) {
                     cardContainer = document.createElement("div");
                     cardContainer.id = "poules-card-container";
@@ -128,7 +230,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 cardContainer.style.display = "block";
                 poulesTable.style.display = "none";
             } else {
-                // Desktop view - show table, hide cards
                 if (cardContainer) {
                     cardContainer.style.display = "none";
                 }
@@ -139,7 +240,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             poules.forEach(p => {
                 if (isMobile && cardContainer) {
-                    // Card view for mobile
                     const card = document.createElement("div");
                     card.className = "table-card";
                     card.innerHTML = `
@@ -156,32 +256,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                     `;
                     cardContainer.appendChild(card);
 
-                    // Edit poule
                     card.querySelector(".edit-poule").addEventListener("click", async () => {
                         const newName = prompt("Nieuwe poule naam:", p.name);
                         if (!newName) return;
                         try {
                             await apiPut(`/poules/${p.id}`, { name: newName });
                             await loadPoules();
-                            await loadTeams(); // update team dropdowns
+                            await loadTeams();
                         } catch (err) {
                             alert("Fout bij bewerken poule: " + err.message);
                         }
                     });
 
-                    // Delete poule
                     card.querySelector(".delete-poule").addEventListener("click", async () => {
                         if (!confirm(`Weet je zeker dat je "${p.name}" wilt verwijderen?`)) return;
                         try {
                             await apiDelete(`/poules/${p.id}`);
                             await loadPoules();
-                            await loadTeams(); // remove deleted poule from team list
+                            await loadTeams();
                         } catch (err) {
                             alert("Fout bij verwijderen poule: " + err.message);
                         }
                     });
                 } else {
-                    // Table view for desktop
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
                         <td>${p.name}</td>
@@ -192,37 +289,29 @@ document.addEventListener("DOMContentLoaded", async () => {
                     `;
                     list.appendChild(tr);
 
-                    // Edit poule
                     tr.querySelector(".edit-poule").addEventListener("click", async () => {
                         const newName = prompt("Nieuwe poule naam:", p.name);
                         if (!newName) return;
                         try {
                             await apiPut(`/poules/${p.id}`, { name: newName });
                             await loadPoules();
-                            await loadTeams(); // update team dropdowns
+                            await loadTeams();
                         } catch (err) {
                             alert("Fout bij bewerken poule: " + err.message);
                         }
                     });
 
-                    // Delete poule
                     tr.querySelector(".delete-poule").addEventListener("click", async () => {
                         if (!confirm(`Weet je zeker dat je "${p.name}" wilt verwijderen?`)) return;
                         try {
                             await apiDelete(`/poules/${p.id}`);
                             await loadPoules();
-                            await loadTeams(); // remove deleted poule from team list
+                            await loadTeams();
                         } catch (err) {
                             alert("Fout bij verwijderen poule: " + err.message);
                         }
                     });
                 }
-
-                // Add to team dropdown
-                const option = document.createElement("option");
-                option.value = p.id;
-                option.text = p.name;
-                select.appendChild(option);
             });
         } catch (err) {
             console.error("Error loading poules:", err);
@@ -233,19 +322,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // Add new poule
-    document.getElementById("add-poule").onclick = async () => {
-        const name = document.getElementById("new-poule-name").value.trim();
-        if (!name) return alert("Poule name required");
-
-        try {
-            await apiPost(`/tournaments/${tournamentId}/poules/`, { name });
-            document.getElementById("new-poule-name").value = "";
-            await loadPoules();
-        } catch (err) {
-            alert("Fout bij toevoegen poule: " + err.message);
-        }
-    };
 
     // ----------------- Teams -----------------
     async function loadTeams() {
@@ -260,138 +336,109 @@ document.addEventListener("DOMContentLoaded", async () => {
             const teams = await apiGet(`/tournaments/${tournamentId}/teams/`);
             const poules = await apiGet(`/tournaments/${tournamentId}/poules/`);
 
-        // Check if mobile view (card-based)
-        const isMobile = window.innerWidth <= 768;
-        const teamsTable = document.querySelector("#teams").closest("table");
-        let cardContainer = document.getElementById("teams-card-container");
-        
-        if (isMobile && teamsTable) {
-            // Create card container if it doesn't exist
-            if (!cardContainer) {
-                cardContainer = document.createElement("div");
-                cardContainer.id = "teams-card-container";
-                cardContainer.className = "table-card-view";
-                teamsTable.parentNode.insertBefore(cardContainer, teamsTable);
-            }
-            cardContainer.innerHTML = "";
-            cardContainer.style.display = "block";
-            teamsTable.style.display = "none";
-        } else {
-            // Desktop view - show table, hide cards
-            if (cardContainer) {
-                cardContainer.style.display = "none";
-            }
-            if (teamsTable) {
-                teamsTable.style.display = "table";
-            }
-        }
+            const isMobile = window.innerWidth <= 768;
+            const teamsTable = document.querySelector("#teams").closest("table");
+            let cardContainer = document.getElementById("teams-card-container");
 
-        teams.forEach(team => {
-            const poule = poules.find(p => p.id === team.poule_id);
-            
-            if (isMobile && cardContainer) {
-                // Card view for mobile
-                const card = document.createElement("div");
-                card.className = "table-card";
-                card.innerHTML = `
-                    <div class="table-card-row">
-                        <div>
-                            <div class="table-card-label">Team</div>
-                            <div class="table-card-value">${team.name}</div>
-                        </div>
-                        <div>
-                            <div class="table-card-label">Poule</div>
-                            <div class="table-card-value">${poule?.name ?? "—"}</div>
-                        </div>
-                    </div>
-                    <div class="table-card-actions">
-                        <button class="edit-team">Bewerk</button>
-                        <button class="delete-team danger">Verwijder</button>
-                    </div>
-                `;
-                cardContainer.appendChild(card);
-                
-                // Attach event listeners
-                card.querySelector(".edit-team").addEventListener("click", async () => {
-                    const newName = prompt("Nieuwe teamnaam:", team.name);
-                    if (!newName) return;
-
-                    try {
-                        const pouleOptions = poules.map(p => `${p.id}:${p.name}`).join("\n");
-                        const pouleInput = prompt(`Selecteer poule (id:name):\n${pouleOptions}`, `${team.poule_id ?? ""}`);
-                        const newPouleId = pouleInput ? Number(pouleInput.split(":")[0]) : null;
-
-                        await apiPut(`/teams/${team.id}`, { name: newName });
-
-                        if (newPouleId !== team.poule_id) {
-                            await apiPut(`/teams/${team.id}/assign-poule/${newPouleId}`);
-                        }
-
-                        await loadTeams();
-                    } catch (err) {
-                        alert("Fout bij bewerken team: " + err.message);
-                    }
-                });
-
-                card.querySelector(".delete-team").addEventListener("click", async () => {
-                    if (!confirm(`Weet je zeker dat je "${team.name}" wilt verwijderen?`)) return;
-                    try {
-                        await apiDelete(`/teams/${team.id}`);
-                        await loadTeams();
-                    } catch (err) {
-                        alert("Fout bij verwijderen team: " + err.message);
-                    }
-                });
+            if (isMobile && teamsTable) {
+                if (!cardContainer) {
+                    cardContainer = document.createElement("div");
+                    cardContainer.id = "teams-card-container";
+                    cardContainer.className = "table-card-view";
+                    teamsTable.parentNode.insertBefore(cardContainer, teamsTable);
+                }
+                cardContainer.innerHTML = "";
+                cardContainer.style.display = "block";
+                teamsTable.style.display = "none";
             } else {
-                // Table view for desktop
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${team.name}</td>
-                    <td>${poule?.name ?? "—"}</td>
-                    <td>
-                        <button class="edit-team">Bewerk</button>
-                        <button class="delete-team">Verwijder</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-
-                // Edit team
-                tr.querySelector(".edit-team").addEventListener("click", async () => {
-                    const newName = prompt("Nieuwe teamnaam:", team.name);
-                    if (!newName) return;
-
-                    try {
-                        // Optional: select new poule
-                        const pouleOptions = poules.map(p => `${p.id}:${p.name}`).join("\n");
-                        const pouleInput = prompt(`Selecteer poule (id:name):\n${pouleOptions}`, `${team.poule_id ?? ""}`);
-                        const newPouleId = pouleInput ? Number(pouleInput.split(":")[0]) : null;
-
-                        // Update name
-                        await apiPut(`/teams/${team.id}`, { name: newName });
-
-                        // Update poule if changed
-                        if (newPouleId !== team.poule_id) {
-                            await apiPut(`/teams/${team.id}/assign-poule/${newPouleId}`);
-                        }
-
-                        await loadTeams();
-                    } catch (err) {
-                        alert("Fout bij bewerken team: " + err.message);
-                    }
-                });
-
-                // Delete team
-                tr.querySelector(".delete-team").addEventListener("click", async () => {
-                    if (!confirm(`Weet je zeker dat je "${team.name}" wilt verwijderen?`)) return;
-                    try {
-                        await apiDelete(`/teams/${team.id}`);
-                        await loadTeams();
-                    } catch (err) {
-                        alert("Fout bij verwijderen team: " + err.message);
-                    }
-                });
+                if (cardContainer) {
+                    cardContainer.style.display = "none";
+                }
+                if (teamsTable) {
+                    teamsTable.style.display = "table";
+                }
             }
-        });
+
+            teams.forEach(team => {
+                const poule = poules.find(p => p.id === team.poule_id);
+
+                if (isMobile && cardContainer) {
+                    const card = document.createElement("div");
+                    card.className = "table-card";
+                    card.innerHTML = `
+                        <div class="table-card-row">
+                            <div>
+                                <div class="table-card-label">Team</div>
+                                <div class="table-card-value">${team.name}</div>
+                            </div>
+                            <div>
+                                <div class="table-card-label">Poule</div>
+                                <div class="table-card-value">${poule?.name ?? "—"}</div>
+                            </div>
+                        </div>
+                        <div class="table-card-actions">
+                            <button class="edit-team">Bewerk</button>
+                            <button class="delete-team danger">Verwijder</button>
+                        </div>
+                    `;
+                    cardContainer.appendChild(card);
+
+                    card.querySelector(".edit-team").addEventListener("click", async () => {
+                        const newName = prompt("Nieuwe teamnaam:", team.name);
+                        if (!newName) return;
+                        try {
+                            await apiPut(`/teams/${team.id}`, { name: newName });
+                            await loadTeams();
+                        } catch (err) {
+                            alert("Fout bij bewerken team: " + err.message);
+                        }
+                    });
+
+                    card.querySelector(".delete-team").addEventListener("click", async () => {
+                        if (!confirm(`Weet je zeker dat je "${team.name}" wilt verwijderen?`)) return;
+                        try {
+                            await apiDelete(`/teams/${team.id}`);
+                            await loadTeams();
+                            await loadSetupSuggestions();
+                        } catch (err) {
+                            alert("Fout bij verwijderen team: " + err.message);
+                        }
+                    });
+                } else {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${team.name}</td>
+                        <td>${poule?.name ?? "—"}</td>
+                        <td>
+                            <button class="edit-team">Bewerk</button>
+                            <button class="delete-team">Verwijder</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+
+                    tr.querySelector(".edit-team").addEventListener("click", async () => {
+                        const newName = prompt("Nieuwe teamnaam:", team.name);
+                        if (!newName) return;
+                        try {
+                            await apiPut(`/teams/${team.id}`, { name: newName });
+                            await loadTeams();
+                        } catch (err) {
+                            alert("Fout bij bewerken team: " + err.message);
+                        }
+                    });
+
+                    tr.querySelector(".delete-team").addEventListener("click", async () => {
+                        if (!confirm(`Weet je zeker dat je "${team.name}" wilt verwijderen?`)) return;
+                        try {
+                            await apiDelete(`/teams/${team.id}`);
+                            await loadTeams();
+                            await loadSetupSuggestions();
+                        } catch (err) {
+                            alert("Fout bij verwijderen team: " + err.message);
+                        }
+                    });
+                }
+            });
         } catch (err) {
             console.error("Error loading teams:", err);
             const tbody = document.getElementById("teams");
@@ -400,7 +447,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
     }
-    
+
     // Handle window resize to toggle between table/card views
     let resizeTimeout;
     window.addEventListener("resize", () => {
@@ -411,23 +458,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 250);
     });
 
-    // Add new team
+    // Add new team (no poule assignment — handled by auto-distribute)
     document.getElementById("add-team").onclick = async () => {
         const name = document.getElementById("team-name").value.trim();
-        const pouleId = Number(document.getElementById("poule-select").value) || null;
         if (!name) {
             alert("Team naam is verplicht");
             return;
         }
 
         try {
-            await apiPost(`/tournaments/${tournamentId}/teams/`, {
-                name,
-                poule_id: pouleId
-            });
-
+            await apiPost(`/tournaments/${tournamentId}/teams/`, { name });
             document.getElementById("team-name").value = "";
             await loadTeams();
+            await loadSetupSuggestions();
         } catch (err) {
             alert("Fout bij toevoegen team: " + err.message);
         }
@@ -440,7 +483,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const generateKnockoutBtn = document.getElementById("generate-knockout-btn");
             const generateFinalBtn = document.getElementById("generate-final-btn");
 
-            // Show knockout button only if group phase is complete
             if (generateKnockoutBtn) {
                 if (status.group_phase_complete) {
                     generateKnockoutBtn.style.display = "inline-block";
@@ -451,7 +493,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }
 
-            // Show final button only if knockout phase is complete
             if (generateFinalBtn) {
                 if (status.knockout_phase_complete) {
                     generateFinalBtn.style.display = "inline-block";
@@ -463,7 +504,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         } catch (err) {
             console.error("Error checking phase status:", err);
-            // On error, hide buttons to be safe
             const generateKnockoutBtn = document.getElementById("generate-knockout-btn");
             const generateFinalBtn = document.getElementById("generate-final-btn");
             if (generateKnockoutBtn) generateKnockoutBtn.style.display = "none";
@@ -475,8 +515,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadTournament();
     loadPoules();
     loadTeams();
+    loadSetupSuggestions();
     updatePhaseButtons();
-    
+
     // Refresh phase status every 5 seconds to update buttons
     setInterval(updatePhaseButtons, 5000);
-    });
+});
