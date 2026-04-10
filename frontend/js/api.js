@@ -30,10 +30,16 @@ async function parseError(res) {
     }
 }
 
+function handleUnauthorized() {
+    localStorage.removeItem("auth_token");
+    window.location.href = "login.html";
+}
+
 async function apiGet(path) {
     const res = await fetch(`${API_BASE}${path}`, {
         headers: getAuthHeaders()
     });
+    if (res.status === 401) { handleUnauthorized(); return; }
     if (!res.ok) {
         const msg = await parseError(res);
         throw new Error(msg);
@@ -47,6 +53,7 @@ async function apiPost(path, data) {
         headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
+    if (res.status === 401) { handleUnauthorized(); return; }
     if (!res.ok) {
         const msg = await parseError(res);
         throw new Error(msg);
@@ -59,6 +66,7 @@ async function apiDelete(path) {
         method: "DELETE",
         headers: getAuthHeaders()
     });
+    if (res.status === 401) { handleUnauthorized(); return; }
     if (!res.ok) {
         const msg = await parseError(res);
         throw new Error(msg);
@@ -71,6 +79,7 @@ async function apiPut(path, data) {
         headers: getAuthHeaders(),
         body: JSON.stringify(data)
     });
+    if (res.status === 401) { handleUnauthorized(); return; }
     if (!res.ok) {
         const msg = await parseError(res);
         throw new Error(msg);
