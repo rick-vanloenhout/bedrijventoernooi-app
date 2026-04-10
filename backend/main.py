@@ -43,6 +43,10 @@ def root():
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/frontend/index.html")
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 # -------------------- DB Init --------------------
 models.Base.metadata.create_all(bind=engine)
 
