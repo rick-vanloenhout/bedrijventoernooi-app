@@ -116,6 +116,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             warningEl.style.display = "none";
 
             const groupPhaseExists = status.group_matches_total > 0;
+            const allTeamsDistributed = teams.length > 0 && teams.every(t => t.poule_id !== null);
+
+            const setupSection = document.getElementById("poule-setup-section");
+            if (groupPhaseExists || allTeamsDistributed) {
+                setupSection.style.display = "none";
+            } else {
+                setupSection.style.display = "";
+            }
 
             if (groupPhaseExists) {
                 distributeBtn.disabled = true;
@@ -480,8 +488,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function updatePhaseButtons() {
         try {
             const status = await apiGet(`/tournaments/${tournamentId}/phase-status`);
+            const generateScheduleBtn = document.getElementById("generate-schedule-btn");
             const generateKnockoutBtn = document.getElementById("generate-knockout-btn");
             const generateFinalBtn = document.getElementById("generate-final-btn");
+
+            if (generateScheduleBtn) {
+                generateScheduleBtn.style.display = status.group_matches_total > 0 ? "none" : "inline-block";
+            }
 
             if (generateKnockoutBtn) {
                 if (status.group_phase_complete) {
