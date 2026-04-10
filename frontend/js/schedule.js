@@ -268,7 +268,6 @@ async function loadOverallStandings() {
 
     const data = await apiGet(`/tournaments/${tournamentId}/overall-standings`);
     const standings = data.teams;
-    const num_poules = data.num_poules || 4;
 
     if (!standings || standings.length === 0) {
         container.textContent = "Geen algemeen klassement beschikbaar.";
@@ -318,14 +317,7 @@ async function loadOverallStandings() {
                     progressionBadge = " 🏆";
                 } else if (row.final_position === 2) {
                     progressionBadge = " 🥈";
-                } else {
-                    const end = num_poules;
-                    progressionBadge = ` (Posities 1–${end})`;
                 }
-            } else if (level >= 2 && level <= 5) {
-                const start = (level - 1) * num_poules + 1;
-                const end = level * num_poules;
-                progressionBadge = ` (Posities ${start}–${end})`;
             }
         }
         
