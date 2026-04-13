@@ -849,7 +849,7 @@ input:focus, select:focus {
 }
 
 .sponsor-track img {
-    height: 48px;
+    height: 96px;
     width: auto;
     object-fit: contain;
     filter: grayscale(20%);
