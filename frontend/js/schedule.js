@@ -109,35 +109,165 @@ async function loadSponsors() {
         const sponsors = await apiGet(`/tournaments/${tournamentId}/sponsors`);
         if (!sponsors || sponsors.length === 0) return;
 
-        // Preload all images before showing the carousel so the animation
-        // starts with a stable track width (avoids flickering on mobile)
+        // Preload all images before rendering so layout is stable from the start
         await Promise.all(sponsors.map(s => new Promise(resolve => {
             const img = new Image();
             img.onload = resolve;
-            img.onerror = resolve; // don't block on broken images
+            img.onerror = resolve;
             img.src = s.logo_url;
         })));
 
-        function buildItems() {
-            return sponsors.map(s => {
-                const img = `<img src="${s.logo_url}" alt="${s.name || 'sponsor'}" />`;
-                return s.url
-                    ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${img}</a>`
-                    : img;
-            }).join("");
+        if (window.innerWidth <= 1024) {
+            buildSponsorGrid(carousel, sponsors);
+        } else {
+            buildSponsorScroll(carousel, sponsors);
         }
 
-        const track = document.createElement("div");
-        track.className = "sponsor-track";
-        // Duplicate so the CSS -50% translate loops seamlessly
-        track.innerHTML = buildItems() + buildItems();
-
-        carousel.innerHTML = "";
-        carousel.appendChild(track);
         carousel.style.display = "block";
     } catch (err) {
         console.error("Error loading sponsors:", err);
     }
+}
+
+function buildSponsorScroll(carousel, sponsors) {
+    function buildItems() {
+        return sponsors.map(s => {
+            const img = `<img src="${s.logo_url}" alt="${s.name || 'sponsor'}" />`;
+            return s.url
+                ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${img}</a>`
+                : img;
+        }).join("");
+    }
+
+    const track = document.createElement("div");
+    track.className = "sponsor-track";
+    track.innerHTML = buildItems() + buildItems();
+    carousel.innerHTML = "";
+    carousel.appendChild(track);
+
+    // Drag to scroll manually
+    let isDragging = false;
+    let startX = 0;
+    let dragOffset = 0;
+    let baseOffset = 0;
+
+    track.addEventListener("mousedown", e => {
+        isDragging = true;
+        startX = e.clientX;
+        // Read current translate from the animation
+        const style = window.getComputedStyle(track);
+        const matrix = new DOMMatrix(style.transform);
+        baseOffset = matrix.m41;
+        track.style.animationPlayState = "paused";
+        track.style.transform = `translateX(${baseOffset}px)`;
+        track.style.cursor = "grabbing";
+        e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", e => {
+        if (!isDragging) return;
+        dragOffset = e.clientX - startX;
+        track.style.transform = `translateX(${baseOffset + dragOffset}px)`;
+    });
+
+    window.addEventListener("mouseup", () => {
+        if (!isDragging) return;
+        isDragging = false;
+        track.style.cursor = "grab";
+        // Resume animation from current visual position
+        const currentX = baseOffset + dragOffset;
+        const halfWidth = track.scrollWidth / 2;
+        // Normalise into the 0 → -halfWidth range so the loop stays correct
+        const normalised = ((currentX % halfWidth) - halfWidth) % halfWidth;
+        track.style.animation = "none";
+        track.style.transform = `translateX(${normalised}px)`;
+        // Force reflow then re-apply animation offset via a custom property
+        track.getBoundingClientRect();
+        track.style.setProperty("--drag-start", `${normalised}px`);
+        track.style.animation = "";
+        track.style.animationPlayState = "running";
+        dragOffset = 0;
+    });
+}
+
+function buildSponsorGrid(carousel, sponsors) {
+    const pages = [];
+    for (let i = 0; i < sponsors.length; i += 2) {
+        const pair = sponsors.slice(i, i + 2);
+        if (pair.length === 1) pair.push(sponsors[0]); // odd count: pair last with first
+        pages.push(pair);
+    }
+
+    if (pages.length === 0) return;
+
+    let current = 0;
+    let timer;
+
+    const gridWrap = document.createElement("div");
+    const dotsWrap = document.createElement("div");
+    dotsWrap.className = "sponsor-dots";
+    pages.forEach((_, i) => {
+        const dot = document.createElement("span");
+        dot.className = "sponsor-dot" + (i === 0 ? " active" : "");
+        dotsWrap.appendChild(dot);
+    });
+
+    function showPage(index) {
+        current = ((index % pages.length) + pages.length) % pages.length;
+        const page = pages[current];
+
+        const grid = document.createElement("div");
+        grid.className = "sponsor-page";
+        page.forEach(s => {
+            const img = document.createElement("img");
+            img.src = s.logo_url;
+            img.alt = s.name || "sponsor";
+            if (s.url) {
+                const a = document.createElement("a");
+                a.href = s.url;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                a.appendChild(img);
+                grid.appendChild(a);
+            } else {
+                grid.appendChild(img);
+            }
+        });
+
+        gridWrap.innerHTML = "";
+        gridWrap.appendChild(grid);
+
+        dotsWrap.querySelectorAll(".sponsor-dot").forEach((dot, i) => {
+            dot.classList.toggle("active", i === current);
+        });
+    }
+
+    function startTimer() {
+        clearInterval(timer);
+        if (pages.length > 1) {
+            timer = setInterval(() => showPage(current + 1), 15000);
+        }
+    }
+
+    // Swipe detection
+    let touchStartX = 0;
+    carousel.addEventListener("touchstart", e => {
+        touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    carousel.addEventListener("touchend", e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 40) {
+            showPage(dx < 0 ? current + 1 : current - 1);
+            startTimer();
+        }
+    }, { passive: true });
+
+    carousel.innerHTML = "";
+    carousel.appendChild(gridWrap);
+    if (pages.length > 1) carousel.appendChild(dotsWrap);
+
+    showPage(0);
+    startTimer();
 }
 
 async function loadSchedule() {
