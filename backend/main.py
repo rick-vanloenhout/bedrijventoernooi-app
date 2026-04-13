@@ -877,35 +877,17 @@ def get_overall_standings(tournament_id: int, db: Session = Depends(get_db)):
         kp = knockout_points[team.id] if progression_data[team.id]["level"] in [1, 2, 3, 4] else 0
         print(f"  {team.name}: level={progression_data[team.id]['level']}, final_pos={progression_data[team.id]['final_position']}, knockout_pts={kp}, group_pts={points[team.id]}", file=sys.stderr)
     
-    group_phase_complete = len(group_matches) > 0 and all(
-        m.home_set1_score is not None and m.away_set1_score is not None
-        and m.home_set2_score is not None and m.away_set2_score is not None
-        and not (m.home_set1_score == 0 and m.away_set1_score == 0)
-        and not (m.home_set2_score == 0 and m.away_set2_score == 0)
-        for m in group_matches
+    teams_sorted = sorted(
+        teams,
+        key=lambda t: (
+            progression_data[t.id]["level"],                                                                             # 1. Poule rank (lower = better bracket)
+            progression_data[t.id]["final_position"] if progression_data[t.id]["final_position"] is not None else 999,  # 2. Final position (winner/runner-up)
+            -points[t.id],                                                                                               # 3. Group phase points (desc)
+            -balance[t.id],                                                                                              # 4. Group phase balance (desc)
+            -knockout_points[t.id],                                                                                      # 5. Knockout points (desc, relevant after KO phase)
+            -knockout_balance[t.id],                                                                                     # 6. Knockout balance (desc)
+        )
     )
-
-    if not group_phase_complete:
-        # Group phase still in progress: rank purely by points then balance
-        teams_sorted = sorted(
-            teams,
-            key=lambda t: (-points[t.id], -balance[t.id])
-        )
-    else:
-        # Group phase done: rank by progression level (poule rank → knockout bracket)
-        # 1. By progression level (lower = better: 1 < 2 < 3 < 4 < 5)
-        # 2. Within final (level 1): by final_position, then knockout points
-        # 3. Within knockout levels (1–4): by knockout points desc, then balance desc
-        # 4. Within group only (level 5): by group phase points desc, then balance desc
-        teams_sorted = sorted(
-            teams,
-            key=lambda t: (
-                progression_data[t.id]["level"],
-                progression_data[t.id]["final_position"] if progression_data[t.id]["final_position"] is not None else 999,
-                -knockout_points[t.id] if progression_data[t.id]["level"] in [1, 2, 3, 4] else -points[t.id],
-                -knockout_balance[t.id] if progression_data[t.id]["level"] in [1, 2, 3, 4] else -balance[t.id]
-            )
-        )
 
     # Calculate total played matches (group + knockout)
     def count_played_matches(team_id):
