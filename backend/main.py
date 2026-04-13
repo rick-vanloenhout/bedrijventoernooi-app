@@ -7,13 +7,13 @@ from datetime import datetime
 from pydantic import BaseModel
 import math
 import random
-import shutil
 import os
 import uuid
+import httpx
 
 from backend.database import engine, SessionLocal
 from backend import models, crud, schemas, schedule
-from backend.settings import CORS_ORIGINS, CREATE_DEFAULT_ADMIN, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
+from backend.settings import CORS_ORIGINS, CREATE_DEFAULT_ADMIN, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD, SUPABASE_URL, SUPABASE_SERVICE_KEY
 from backend.schemas import (
     TournamentCreate, TournamentRead, TournamentUpdate,
     PouleCreate, PouleRead,
@@ -1046,6 +1046,27 @@ def submit_score(
 # -------------------- Sponsors --------------------
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"}
 
+_SUPABASE_PUBLIC_PREFIX = "/storage/v1/object/public/sponsors/"
+
+
+def _supabase_upload(file_bytes: bytes, storage_path: str, content_type: str) -> str:
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/sponsors/{storage_path}"
+    headers = {
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+    resp = httpx.put(upload_url, content=file_bytes, headers=headers)
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail=f"Kon afbeelding niet uploaden: {resp.text}")
+    return f"{SUPABASE_URL}/storage/v1/object/public/sponsors/{storage_path}"
+
+
+def _supabase_delete(storage_path: str):
+    delete_url = f"{SUPABASE_URL}/storage/v1/object/sponsors/{storage_path}"
+    headers = {"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+    httpx.delete(delete_url, headers=headers)
+
 
 def _sponsor_to_read(sponsor: Sponsor) -> dict:
     return {
@@ -1053,7 +1074,7 @@ def _sponsor_to_read(sponsor: Sponsor) -> dict:
         "tournament_id": sponsor.tournament_id,
         "name": sponsor.name,
         "url": sponsor.url,
-        "logo_url": f"/frontend/sponsors/{sponsor.tournament_id}/{sponsor.logo_filename}",
+        "logo_url": sponsor.logo_filename,  # full Supabase public URL
         "order": sponsor.order,
     }
 
@@ -1070,7 +1091,7 @@ def list_sponsors(tournament_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/tournaments/{tournament_id}/sponsors", response_model=SponsorRead, status_code=201)
-def upload_sponsor(
+async def upload_sponsor(
     tournament_id: int,
     logo: UploadFile = File(...),
     name: str = Form(""),
@@ -1083,18 +1104,16 @@ def upload_sponsor(
 
     ext = os.path.splitext(logo.filename)[1] if logo.filename else ".png"
     filename = f"{uuid.uuid4().hex}{ext}"
-    save_dir = os.path.join("frontend", "sponsors", str(tournament_id))
-    os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, filename)
+    storage_path = f"{tournament_id}/{filename}"
 
-    with open(save_path, "wb") as f:
-        shutil.copyfileobj(logo.file, f)
+    file_bytes = await logo.read()
+    public_url = _supabase_upload(file_bytes, storage_path, logo.content_type)
 
     sponsor = Sponsor(
         tournament_id=tournament_id,
         name=name.strip() or None,
         url=url.strip() or None,
-        logo_filename=filename,
+        logo_filename=public_url,
     )
     db.add(sponsor)
     db.commit()
@@ -1112,9 +1131,10 @@ def delete_sponsor(
     if not sponsor:
         raise HTTPException(status_code=404, detail="Sponsor niet gevonden")
 
-    logo_path = os.path.join("frontend", "sponsors", str(sponsor.tournament_id), sponsor.logo_filename)
-    if os.path.exists(logo_path):
-        os.remove(logo_path)
+    # Extract storage path from full public URL
+    if _SUPABASE_PUBLIC_PREFIX in sponsor.logo_filename:
+        storage_path = sponsor.logo_filename.split(_SUPABASE_PUBLIC_PREFIX)[-1]
+        _supabase_delete(storage_path)
 
     db.delete(sponsor)
     db.commit()
