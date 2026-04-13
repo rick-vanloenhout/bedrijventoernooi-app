@@ -98,7 +98,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     loadSchedule();
+    loadSponsors();
 });
+
+async function loadSponsors() {
+    const carousel = document.getElementById("sponsor-carousel");
+    if (!tournamentId || !carousel) return;
+
+    try {
+        const sponsors = await apiGet(`/tournaments/${tournamentId}/sponsors`);
+        if (!sponsors || sponsors.length === 0) return;
+
+        // Build items once, then duplicate for seamless loop
+        function buildItems() {
+            return sponsors.map(s => {
+                const img = `<img src="${s.logo_url}" alt="${s.name || 'sponsor'}" />`;
+                return s.url
+                    ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${img}</a>`
+                    : img;
+            }).join("");
+        }
+
+        const track = document.createElement("div");
+        track.className = "sponsor-track";
+        // Duplicate so the CSS -50% translate loops seamlessly
+        track.innerHTML = buildItems() + buildItems();
+
+        carousel.innerHTML = "";
+        carousel.appendChild(track);
+        carousel.style.display = "block";
+    } catch (err) {
+        console.error("Error loading sponsors:", err);
+    }
+}
 
 async function loadSchedule() {
     const container = document.getElementById("schedule-container");

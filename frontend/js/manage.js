@@ -524,12 +524,89 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // ----------------- Sponsors -----------------
+    async function loadSponsors() {
+        try {
+            const sponsors = await apiGet(`/tournaments/${tournamentId}/sponsors`);
+            const list = document.getElementById("sponsor-list");
+            list.innerHTML = "";
+
+            if (sponsors.length === 0) {
+                list.textContent = "Nog geen sponsors toegevoegd.";
+                return;
+            }
+
+            sponsors.forEach(s => {
+                const row = document.createElement("div");
+                row.className = "sponsor-manage-row";
+                row.innerHTML = `
+                    <img src="${s.logo_url}" alt="${s.name || ''}" class="sponsor-thumb" />
+                    <span class="sponsor-manage-name">${s.name || "—"}</span>
+                    <span class="sponsor-manage-url">${s.url ? `<a href="${s.url}" target="_blank">${s.url}</a>` : "—"}</span>
+                    <button class="delete-sponsor danger">Verwijder</button>
+                `;
+                row.querySelector(".delete-sponsor").addEventListener("click", async () => {
+                    if (!confirm(`Weet je zeker dat je deze sponsor wilt verwijderen?`)) return;
+                    try {
+                        await apiDelete(`/sponsors/${s.id}`);
+                        await loadSponsors();
+                    } catch (err) {
+                        alert("Fout bij verwijderen sponsor: " + err.message);
+                    }
+                });
+                list.appendChild(row);
+            });
+        } catch (err) {
+            console.error("Error loading sponsors:", err);
+        }
+    }
+
+    document.getElementById("add-sponsor").onclick = async () => {
+        const fileInput = document.getElementById("sponsor-logo");
+        const file = fileInput.files[0];
+        if (!file) {
+            alert("Selecteer een afbeelding.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("logo", file);
+        formData.append("name", document.getElementById("sponsor-name").value.trim());
+        formData.append("url", document.getElementById("sponsor-url").value.trim());
+
+        const token = localStorage.getItem("auth_token");
+        const headers = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        try {
+            const res = await fetch(`${API_BASE}/tournaments/${tournamentId}/sponsors`, {
+                method: "POST",
+                headers,
+                body: formData,
+            });
+            if (res.status === 401) { handleUnauthorized(); return; }
+            if (!res.ok) {
+                const text = await res.text();
+                let msg;
+                try { msg = JSON.parse(text).detail || text; } catch { msg = text; }
+                throw new Error(msg);
+            }
+            fileInput.value = "";
+            document.getElementById("sponsor-name").value = "";
+            document.getElementById("sponsor-url").value = "";
+            await loadSponsors();
+        } catch (err) {
+            alert("Fout bij uploaden sponsor: " + err.message);
+        }
+    };
+
     // ----------------- Init -----------------
     loadTournament();
     loadPoules();
     loadTeams();
     loadSetupSuggestions();
     updatePhaseButtons();
+    loadSponsors();
 
     // Refresh phase status every 5 seconds to update buttons
     setInterval(updatePhaseButtons, 5000);

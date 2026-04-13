@@ -26,6 +26,7 @@ class Tournament(Base):
     teams = relationship("Team", back_populates="tournament", cascade="all, delete-orphan")
     rounds = relationship("Round", back_populates="tournament", cascade="all, delete-orphan")
     matches = relationship("Match", back_populates="tournament", cascade="all, delete-orphan")
+    sponsors = relationship("Sponsor", back_populates="tournament", cascade="all, delete-orphan")
 
 
 class Poule(Base):
@@ -109,4 +110,17 @@ class Match(Base):
 
     home_rank_poule = relationship("Poule", foreign_keys=[home_rank_poule_id])
     away_rank_poule = relationship("Poule", foreign_keys=[away_rank_poule_id])
+
+
+class Sponsor(Base):
+    __tablename__ = "sponsors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=True)
+    url = Column(String, nullable=True)
+    logo_filename = Column(String, nullable=False)
+    order = Column(Integer, default=0)
+
+    tournament = relationship("Tournament", back_populates="sponsors")
 

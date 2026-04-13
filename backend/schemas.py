@@ -69,3 +69,16 @@ class PouleRead(BaseModel):
         "from_attributes": True
     }
 
+# Sponsor
+class SponsorRead(BaseModel):
+    id: int
+    tournament_id: int
+    name: Optional[str]
+    url: Optional[str]
+    logo_url: str
+    order: int
+
+    model_config = {
+        "from_attributes": True
+    }
+

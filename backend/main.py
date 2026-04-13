@@ -1,12 +1,15 @@
 # python -m uvicorn backend.main:app --reload
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 import math
 import random
+import shutil
+import os
+import uuid
 
 from backend.database import engine, SessionLocal
 from backend import models, crud, schemas, schedule
@@ -14,10 +17,11 @@ from backend.settings import CORS_ORIGINS, CREATE_DEFAULT_ADMIN, DEFAULT_ADMIN_U
 from backend.schemas import (
     TournamentCreate, TournamentRead, TournamentUpdate,
     PouleCreate, PouleRead,
-    TeamCreate, TeamRead, TeamUpdate
+    TeamCreate, TeamRead, TeamUpdate,
+    SponsorRead
 )
 from backend.schedule import generate_group_phase, generate_knockout_phase, generate_final, get_team_by_rank
-from backend.models import Tournament, Round, Match, Poule, User
+from backend.models import Tournament, Round, Match, Poule, User, Sponsor
 from backend.auth import (
     verify_password, get_password_hash, create_access_token,
     get_current_active_user
@@ -1039,8 +1043,81 @@ def submit_score(
     return {"message": "Score opgeslagen"}
 
 
+# -------------------- Sponsors --------------------
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"}
 
 
+def _sponsor_to_read(sponsor: Sponsor) -> dict:
+    return {
+        "id": sponsor.id,
+        "tournament_id": sponsor.tournament_id,
+        "name": sponsor.name,
+        "url": sponsor.url,
+        "logo_url": f"/frontend/sponsors/{sponsor.tournament_id}/{sponsor.logo_filename}",
+        "order": sponsor.order,
+    }
+
+
+@app.get("/tournaments/{tournament_id}/sponsors", response_model=List[SponsorRead])
+def list_sponsors(tournament_id: int, db: Session = Depends(get_db)):
+    sponsors = (
+        db.query(Sponsor)
+        .filter(Sponsor.tournament_id == tournament_id)
+        .order_by(Sponsor.order.asc(), Sponsor.id.asc())
+        .all()
+    )
+    return [_sponsor_to_read(s) for s in sponsors]
+
+
+@app.post("/tournaments/{tournament_id}/sponsors", response_model=SponsorRead, status_code=201)
+def upload_sponsor(
+    tournament_id: int,
+    logo: UploadFile = File(...),
+    name: str = Form(""),
+    url: str = Form(""),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if logo.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Ongeldig bestandstype. Gebruik een afbeelding (PNG, JPG, GIF, WebP, SVG).")
+
+    ext = os.path.splitext(logo.filename)[1] if logo.filename else ".png"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    save_dir = os.path.join("frontend", "sponsors", str(tournament_id))
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+
+    with open(save_path, "wb") as f:
+        shutil.copyfileobj(logo.file, f)
+
+    sponsor = Sponsor(
+        tournament_id=tournament_id,
+        name=name.strip() or None,
+        url=url.strip() or None,
+        logo_filename=filename,
+    )
+    db.add(sponsor)
+    db.commit()
+    db.refresh(sponsor)
+    return _sponsor_to_read(sponsor)
+
+
+@app.delete("/sponsors/{sponsor_id}", status_code=204)
+def delete_sponsor(
+    sponsor_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    sponsor = db.query(Sponsor).filter(Sponsor.id == sponsor_id).first()
+    if not sponsor:
+        raise HTTPException(status_code=404, detail="Sponsor niet gevonden")
+
+    logo_path = os.path.join("frontend", "sponsors", str(sponsor.tournament_id), sponsor.logo_filename)
+    if os.path.exists(logo_path):
+        os.remove(logo_path)
+
+    db.delete(sponsor)
+    db.commit()
 
 
 
