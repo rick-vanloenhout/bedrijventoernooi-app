@@ -109,7 +109,15 @@ async function loadSponsors() {
         const sponsors = await apiGet(`/tournaments/${tournamentId}/sponsors`);
         if (!sponsors || sponsors.length === 0) return;
 
-        // Build items once, then duplicate for seamless loop
+        // Preload all images before showing the carousel so the animation
+        // starts with a stable track width (avoids flickering on mobile)
+        await Promise.all(sponsors.map(s => new Promise(resolve => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve; // don't block on broken images
+            img.src = s.logo_url;
+        })));
+
         function buildItems() {
             return sponsors.map(s => {
                 const img = `<img src="${s.logo_url}" alt="${s.name || 'sponsor'}" />`;
