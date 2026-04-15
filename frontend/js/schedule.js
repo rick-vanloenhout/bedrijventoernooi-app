@@ -21,38 +21,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const tabSchedule = document.getElementById("tab-schedule");
     const tabStandings = document.getElementById("tab-standings");
     const tabOverall = document.getElementById("tab-overall");
+    const tabRules = document.getElementById("tab-rules");
     const scheduleContainer = document.getElementById("schedule-container");
     const standingsContainer = document.getElementById("standings-container");
     const overallContainer = document.getElementById("overall-container");
+    const rulesContainer = document.getElementById("rules-container");
 
-    tabSchedule.addEventListener("click", () => {
-        tabSchedule.classList.add("active");
-        tabStandings.classList.remove("active");
-        tabOverall.classList.remove("active");
-        scheduleContainer.classList.remove("hidden");
-        standingsContainer.classList.add("hidden");
-        overallContainer.classList.add("hidden");
-    });
+    const allTabs = [tabSchedule, tabStandings, tabOverall, tabRules];
+    const allContainers = [scheduleContainer, standingsContainer, overallContainer, rulesContainer];
 
-    tabStandings.addEventListener("click", () => {
-        tabStandings.classList.add("active");
-        tabSchedule.classList.remove("active");
-        tabOverall.classList.remove("active");
-        scheduleContainer.classList.add("hidden");
-        standingsContainer.classList.remove("hidden");
-        overallContainer.classList.add("hidden");
-        loadStandings();
-    });
+    function switchTab(activeTab, activeContainer, onSwitch) {
+        allTabs.forEach(t => t.classList.remove("active"));
+        allContainers.forEach(c => c.classList.add("hidden"));
+        activeTab.classList.add("active");
+        activeContainer.classList.remove("hidden");
+        if (onSwitch) onSwitch();
+    }
 
-    tabOverall.addEventListener("click", () => {
-        tabOverall.classList.add("active");
-        tabSchedule.classList.remove("active");
-        tabStandings.classList.remove("active");
-        scheduleContainer.classList.add("hidden");
-        standingsContainer.classList.add("hidden");
-        overallContainer.classList.remove("hidden");
-        loadOverallStandings();
-    });
+    tabSchedule.addEventListener("click", () => switchTab(tabSchedule, scheduleContainer));
+    tabStandings.addEventListener("click", () => switchTab(tabStandings, standingsContainer, loadStandings));
+    tabOverall.addEventListener("click", () => switchTab(tabOverall, overallContainer, loadOverallStandings));
+    tabRules.addEventListener("click", () => switchTab(tabRules, rulesContainer));
     
     // Handle window resize to toggle between table/card views
     // Only trigger on width changes, not height (to avoid iOS Safari address bar issues)
