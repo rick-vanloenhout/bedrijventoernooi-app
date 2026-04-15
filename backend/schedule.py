@@ -71,6 +71,7 @@ def generate_group_phase(db: Session, tournament_id: int):
 
     fields = tournament.num_fields
     match_duration = tournament.match_duration_minutes
+    break_duration = tournament.break_duration_minutes
     current_time = datetime.strptime(tournament.start_time, "%H:%M")
 
     poules = db.query(Poule).filter(Poule.tournament_id == tournament_id).all()
@@ -159,8 +160,13 @@ def generate_group_phase(db: Session, tournament_id: int):
                 db.add(match)
 
             db.commit()
-            current_time += timedelta(minutes=match_duration)
+            current_time += timedelta(minutes=match_duration + break_duration)
             round_number += 1
+
+    # 15-minute break between group phase and knockout phase.
+    # Subtract break_duration to compensate for what was already added after the last group round,
+    # so the net gap from end-of-last-group-match to start-of-first-knockout-match is exactly 15 min.
+    current_time += timedelta(minutes=15 - break_duration)
 
     # --------------------
     # KNOCKOUT STRUCTURE (PLACEHOLDERS)
@@ -232,7 +238,7 @@ def generate_group_phase(db: Session, tournament_id: int):
 
         db.commit()
         idx += fields
-        current_time += timedelta(minutes=match_duration)
+        current_time += timedelta(minutes=match_duration + break_duration)
         round_number += 1
 
     # --------------------
